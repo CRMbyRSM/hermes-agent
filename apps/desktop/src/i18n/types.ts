@@ -254,6 +254,9 @@ export interface Translations {
       toolViewDesc: string
       translucencyTitle: string
       translucencyDesc: string
+      chatWidthTitle: string
+      chatWidthDesc: string
+      chatWidthOptions: Record<'comfortable' | 'default' | 'full' | 'wide', string>
       product: string
       productDesc: string
       technical: string

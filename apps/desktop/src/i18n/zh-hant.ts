@@ -261,6 +261,14 @@ export const zhHant = defineLocale({
       toolViewDesc: '產品模式會隱藏原始工具 payload；技術模式會顯示完整輸入/輸出。',
       translucencyTitle: '視窗透明',
       translucencyDesc: '讓整個視窗透出桌面。僅支援 macOS 與 Windows。',
+      chatWidthTitle: '聊天寬度',
+      chatWidthDesc: '選擇聊天視圖中對話與輸入框的寬度。',
+      chatWidthOptions: {
+        default: '預設',
+        comfortable: '舒適',
+        wide: '寬版',
+        full: '全寬'
+      },
       product: '產品',
       productDesc: '易讀的工具活動與精簡摘要。',
       technical: '技術',
@@ -1470,7 +1478,8 @@ export const zhHant = defineLocale({
     copy: '複製',
     copied: '已複製',
     done: '完成',
-    applyingBody: 'Hermes 更新程式會在自己的視窗中接管，並在完成後自動重新開啟 Hermes。更新期間請勿自行重新開啟 Hermes。',
+    applyingBody:
+      'Hermes 更新程式會在自己的視窗中接管，並在完成後自動重新開啟 Hermes。更新期間請勿自行重新開啟 Hermes。',
     applyingBodyBackend: '遠端後端正在套用更新並將重新啟動。恢復後 Hermes 會自動重新連線。',
     applyingClose: '此視窗會在更新期間關閉，隨後 Hermes 會自動重新開啟。',
     errorTitle: '更新未完成',

@@ -349,6 +349,14 @@ export const zh: Translations = {
       toolViewDesc: '产品模式隐藏原始工具数据；技术模式显示完整输入/输出。',
       translucencyTitle: '窗口透明',
       translucencyDesc: '让整个窗口透出桌面。仅支持 macOS 和 Windows。',
+      chatWidthTitle: '聊天宽度',
+      chatWidthDesc: '选择聊天视图中对话和输入框的宽度。',
+      chatWidthOptions: {
+        default: '默认',
+        comfortable: '舒适',
+        wide: '宽屏',
+        full: '全宽'
+      },
       product: '产品',
       productDesc: '易读的工具活动与简洁摘要。',
       technical: '技术',
@@ -1570,11 +1578,13 @@ export const zh: Translations = {
     manualBody: '你是从命令行安装的 Hermes，因此更新也需要在那里运行。请将此命令粘贴到终端：',
     manualPickedUp: '下次启动 Hermes 时会使用新版本。',
     guiSkewTitle: '请更新桌面应用',
-    guiSkewBody: '后端已更新，但此桌面应用包未更改。请更新或重新安装 Hermes 桌面应用（你的 AppImage / .deb / .rpm）以保持一致。',
+    guiSkewBody:
+      '后端已更新，但此桌面应用包未更改。请更新或重新安装 Hermes 桌面应用（你的 AppImage / .deb / .rpm）以保持一致。',
     copy: '复制',
     copied: '已复制',
     done: '完成',
-    applyingBody: 'Hermes 更新器会在自己的窗口中接管，并在完成后自动重新打开 Hermes。更新期间请不要自行重新打开 Hermes。',
+    applyingBody:
+      'Hermes 更新器会在自己的窗口中接管，并在完成后自动重新打开 Hermes。更新期间请不要自行重新打开 Hermes。',
     applyingBodyBackend: '远程后端正在应用更新并将重启。恢复后 Hermes 会自动重新连接。',
     applyingClose: '此窗口会在更新期间关闭，随后 Hermes 会自动重新打开。',
     errorTitle: '更新未完成',
