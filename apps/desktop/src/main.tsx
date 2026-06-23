@@ -1,4 +1,6 @@
 import './styles.css'
+// Side-effect: applies the persisted chat width preference on load.
+import './store/chat-width'
 // Side-effect: applies the persisted window translucency on load.
 import './store/translucency'
 

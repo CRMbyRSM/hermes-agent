@@ -356,6 +356,14 @@ export const en: Translations = {
       toolViewDesc: 'Product hides raw tool payloads; Technical shows full input/output.',
       translucencyTitle: 'Window Translucency',
       translucencyDesc: 'See your desktop through the whole window. macOS and Windows only.',
+      chatWidthTitle: 'Chat Width',
+      chatWidthDesc: 'Choose how wide the conversation and composer should be in the chat view.',
+      chatWidthOptions: {
+        default: 'Default',
+        comfortable: 'Comfortable',
+        wide: 'Wide',
+        full: 'Full'
+      },
       product: 'Product',
       productDesc: 'Human-friendly tool activity with concise summaries.',
       technical: 'Technical',

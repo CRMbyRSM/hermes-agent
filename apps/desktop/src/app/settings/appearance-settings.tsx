@@ -7,6 +7,7 @@ import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import { Check, Download, Loader2, Palette, Trash2 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
+import { $chatWidthMode, CHAT_WIDTH_OPTIONS, setChatWidthMode } from '@/store/chat-width'
 import { $activeGatewayProfile, $profiles, normalizeProfileKey } from '@/store/profile'
 import { $toolViewMode, setToolViewMode } from '@/store/tool-view'
 import { $translucency, setTranslucency } from '@/store/translucency'
@@ -136,6 +137,7 @@ export function AppearanceSettings() {
   const { t, isSavingLocale } = useI18n()
   const { themeName, mode, availableThemes, setTheme, setMode } = useTheme()
   const toolViewMode = useStore($toolViewMode)
+  const chatWidthMode = useStore($chatWidthMode)
   const translucency = useStore($translucency)
   const profiles = useStore($profiles)
   const activeProfileKey = normalizeProfileKey(useStore($activeGatewayProfile))
@@ -154,6 +156,8 @@ export function AppearanceSettings() {
     { id: 'product', label: a.product },
     { id: 'technical', label: a.technical }
   ] as const
+
+  const chatWidthOptions = CHAT_WIDTH_OPTIONS.map(({ id }) => ({ id, label: a.chatWidthOptions[id] }))
 
   return (
     <SettingsContent>
@@ -209,6 +213,22 @@ export function AppearanceSettings() {
             }
             description={a.translucencyDesc}
             title={a.translucencyTitle}
+          />
+
+          <ListRow
+            action={
+              <SegmentedControl
+                className="max-w-full overflow-x-auto"
+                onChange={id => {
+                  triggerHaptic('selection')
+                  setChatWidthMode(id)
+                }}
+                options={chatWidthOptions}
+                value={chatWidthMode}
+              />
+            }
+            description={a.chatWidthDesc}
+            title={a.chatWidthTitle}
           />
 
           <ListRow

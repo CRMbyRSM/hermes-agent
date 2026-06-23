@@ -349,6 +349,14 @@ export const zh: Translations = {
       toolViewDesc: '产品模式隐藏原始工具数据；技术模式显示完整输入/输出。',
       translucencyTitle: '窗口透明',
       translucencyDesc: '让整个窗口透出桌面。仅支持 macOS 和 Windows。',
+      chatWidthTitle: 'Chat Width',
+      chatWidthDesc: 'Choose how wide the conversation and composer should be in the chat view.',
+      chatWidthOptions: {
+        default: 'Default',
+        comfortable: 'Comfortable',
+        wide: 'Wide',
+        full: 'Full'
+      },
       product: '产品',
       productDesc: '易读的工具活动与简洁摘要。',
       technical: '技术',
