@@ -1936,7 +1936,7 @@ def _raise_inactivity_timeout(agent, job_name: str, limit_s: float) -> None:
 
 def _run_agent_with_watchdog(
     agent, prompt: str, job: dict, job_id: str, job_name: str, task_id: str, cancel_event,
-    worker_state: Optional[dict] = None,
+    worker_state: Optional[dict] = None, conversation_history: Optional[list] = None,
 ) -> dict:
     """Run ``agent.run_conversation`` on a worker thread under the inactivity (not wall-clock)
     watchdog: default 600s, override HERMES_CRON_TIMEOUT, 0 = unlimited."""
@@ -1982,8 +1982,11 @@ def _run_agent_with_watchdog(
     _cron_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     # Carry scheduler-scoped ContextVar state (e.g. env passthrough) into the worker thread.
     _cron_context = contextvars.copy_context()
+    _conversation_kwargs: dict[str, Any] = {"task_id": task_id}
+    if conversation_history is not None:
+        _conversation_kwargs["conversation_history"] = conversation_history
     _cron_future = _cron_pool.submit(
-        _cron_context.run, agent.run_conversation, prompt, task_id=task_id)
+        _cron_context.run, agent.run_conversation, prompt, **_conversation_kwargs)
     if worker_state is not None:
         worker_state["future"] = _cron_future
     _inactivity_timeout = False
@@ -2173,11 +2176,12 @@ def _finalize_cron_session(session_db, agent, job_id: str, job_name: str, cron_s
     # it grows) downgrades the booking: an unknown value (newer classifier shape, test doubles) keeps the
     # historical reason, and so does a failed probe — the booking itself is FAIL-OPEN on probe errors,
     # because classification is best-effort metadata and must not mislabel a healthy run.
-    _end_reason = "cron_complete"
+    _business_incomplete = getattr(agent, "_cron_business_completion_failed", False) is True
+    _end_reason = "cron_business_incomplete" if _business_incomplete else "cron_complete"
     try:
         _statuses = _session_db.session_lifecycle_statuses([_final_cron_session_id])
         _lifecycle = _statuses.get(_final_cron_session_id)
-        if _lifecycle in ("interrupted", "error", "empty"):
+        if not _business_incomplete and _lifecycle in ("interrupted", "error", "empty"):
             _end_reason = "cron_incomplete_no_output"
             logger.warning(
                 "Job '%s': session ended without a final assistant "
@@ -2232,6 +2236,7 @@ _RunResult = tuple[bool, str, str, Optional[str]]
 
 def _prepare_job_prompt(
     job: dict, job_id: str, job_name: str, extra_prompt: Optional[str], cancel_event,
+    completion_context: Optional[dict] = None,
 ) -> tuple[Optional[_RunResult], Optional[str]]:
     """Run every pre-agent gate and build the prompt. Returns ``(early_result, prompt)``: an early
     result short-circuits ``run_job`` (no_agent job, empty payload, monitor gate, wake gate,
@@ -2278,6 +2283,8 @@ def _prepare_job_prompt(
             cancel_event=cancel_event,
         )
         _ran_ok, _script_output = prerun_script
+        if completion_context is not None:
+            completion_context.update(prerun_script_ok=_ran_ok, prerun_script_output=_script_output)
         if _ran_ok and not _parse_wake_gate(_script_output):
             logger.info("Job '%s' (ID: %s): wakeAgent=false, skipping agent run", job_name, job_id)
             note_cron_skipped(job)
@@ -2569,7 +2576,9 @@ def run_job(
     job_id = job["id"]
     job_name = str(job.get("name") or job.get("prompt") or job_id or "cron job")
 
-    early, prompt = _prepare_job_prompt(job, job_id, job_name, extra_prompt, cancel_event)
+    _completion_context = {"prerun_script_ok": False, "prerun_script_output": ""}
+    early, prompt = _prepare_job_prompt(
+        job, job_id, job_name, extra_prompt, cancel_event, completion_context=_completion_context)
     if early is not None:
         return early
     from run_agent import AIAgent
@@ -2584,6 +2593,7 @@ def run_job(
     _session_db = None
     _audit: Optional[_FireAudit] = None
     _worker_state: dict = {}
+    _completion_check = None
     scope = _CronRunScope(job, job_id, execution_id)
     try:
         scope.enter()
@@ -2599,6 +2609,9 @@ def run_job(
             return setup.blocked
         model = setup.model
 
+        from cron.completion_check import resolve_completion_check
+        _completion_check = resolve_completion_check(_cfg, job_id, _get_hermes_home())
+
         # Open state.db only after every early-return gate has passed.
         _session_db = _open_cron_session_db(job)
         agent = _construct_cron_agent(
@@ -2610,6 +2623,38 @@ def run_job(
             agent, prompt, job, job_id, job_name, scope.task_id, cancel_event,
             worker_state=_worker_state)
         final_response = _final_response_from_result(result, job_id, job_name, AIAgent)
+        if _completion_check is not None:
+            from cron.completion_check import CompletionCheckError, run_completion_check
+            _attempt = 0
+            try:
+                while True:
+                    verdict = run_completion_check(_completion_check, {
+                        "schema_version": 1, "job_id": job_id,
+                        "session_id": str(getattr(agent, "session_id", _cron_session_id)),
+                        "attempt": _attempt, **_completion_context,
+                    }, cancel_event=cancel_event)
+                    if verdict["complete"]:
+                        break
+                    if not verdict["retryable"] or _attempt >= _completion_check.max_continuations:
+                        raise CompletionCheckError(
+                            f"business completion not verified after {_attempt} continuations: {verdict['reason']}")
+                    history = result.get("messages")
+                    if (not isinstance(history, list) or not history
+                            or any(not isinstance(row, dict) or not isinstance(row.get("role"), str)
+                                   for row in history)):
+                        raise CompletionCheckError("business continuation lacks valid prior conversation history")
+                    if cancel_event is not None and cancel_event.is_set():
+                        raise CompletionCheckError("business completion cancelled")
+                    _attempt += 1
+                    result = _run_agent_with_watchdog(
+                        agent, verdict["continuation_prompt"], job, job_id, job_name, scope.task_id,
+                        cancel_event, worker_state=_worker_state, conversation_history=history)
+                    final_response = _final_response_from_result(result, job_id, job_name, AIAgent)
+            except Exception:
+                agent._cron_business_completion_failed = True
+                raise
+            # Native result token/cost fields are SESSION totals (turn_finalizer.py),
+            # so the final result already includes all continuation turns; never sum them.
         if (setup.fallback_notice and final_response.strip() and not _is_cron_silence_response(final_response)
                 and _cron_failure_marker_error(final_response) is None):
             # Pre-agent provider switch (#74349) rides with the delivered report; silence and the
@@ -2631,6 +2676,8 @@ def run_job(
         return True, output, final_response, None
 
     except (Exception, ConfigBackendUnavailable) as e:  # the plane being down fails THIS fire only
+        if agent is not None and _completion_check is not None:
+            agent._cron_business_completion_failed = True
         error_msg = f"{type(e).__name__}: {e!s}"
         logger.exception("Job '%s' failed: %s", job_name, error_msg)
         # Cowork-style unreachable-model re-run (cron/unreachable_retry.py): flag failures where
