@@ -70,14 +70,14 @@ def _fixture_checker(home):
     return checker
 
 
-def _run_native_job(monkeypatch, tmp_path, config, cancel_event=None):
+def _run_native_job(monkeypatch, tmp_path, config, cancel_event=None, job_id="business-job", prerun_stdout=None):
     """Run run_job's owned execution path with only agent/runtime boundaries faked."""
     home = tmp_path / "hermes-home"
     (home / "scripts").mkdir(parents=True)
     _fixture_checker(home)
     db = _RecordingSessionDB()
     job = {
-        "id": "business-job",
+        "id": job_id,
         "name": "Business completion",
         "prompt": "Research the business task",
         "script": "prerun.py",
@@ -101,7 +101,7 @@ def _run_native_job(monkeypatch, tmp_path, config, cancel_event=None):
     prerun_outputs = []
 
     def run_prerun(*_args, **_kwargs):
-        prerun_outputs.append("ORIGINAL\r\ntrusted stdout\n")
+        prerun_outputs.append(prerun_stdout if prerun_stdout is not None else "ORIGINAL\r\ntrusted stdout\n")
         return True, prerun_outputs[-1]
 
     monkeypatch.setattr(scheduler, "_run_job_script_with_claim_heartbeat", run_prerun)
